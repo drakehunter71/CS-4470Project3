@@ -13,10 +13,16 @@ class Patient(object):
     DrugMap = dict()
     GenericMap = dict()
     OrganMap = dict()
+
     PatientDrugs = {"patient":list(),
                     "drug":list(),
                     "category":list(),
                     "organ":list()}
+    
+    FuzzyMatches = {"matchType":list(),
+                    "oldValue":list(),
+                    "newValue":list(),
+                    "score":list()}
 
     @classmethod
     def AggregatePatientXmls(cls, xmlFiles) -> list:
@@ -42,9 +48,13 @@ class Patient(object):
         return patientRecords
 
     @classmethod
-    def GetDrugDataframe(cls):
+    def GetDrugDataframe(cls) -> pd.DataFrame:
         return pd.DataFrame.from_dict(cls.PatientDrugs)
     
+    @classmethod
+    def GetFuzzyDataframe(cls) -> pd.DataFrame:
+        return pd.DataFrame.from_dict(cls.FuzzyMatches)
+
     def __init__(self, **kwargs):
         self.records = self._buildElementTrees(kwargs["records"])
         self.id = self._getPatientId(kwargs["records"][0])
@@ -84,11 +94,13 @@ class Patient(object):
             for k in map.keys():
                 ratio = fuzz.ratio(k, drug)
                 if (len(drug) >= 5 and ratio >= 80) or (len(drug) == 3 and ratio == 100) or (len(drug) == 4 and ratio >= 90):
+                    self._updateFuzzyMatches("full", drug, k, ratio)
                     return (k, True)
             for k in map.keys():
                 if "/" not in k:
                     pRatio = fuzz.partial_ratio(k, drug)
-                    if (len(drug) >= 5 and pRatio >= 80) or (len(drug) == 3 and pRatio == 100) or (len(drug) == 4 and pRatio >= 90):    
+                    if (len(drug) >= 5 and pRatio >= 80) or (len(drug) == 3 and pRatio == 100) or (len(drug) == 4 and pRatio >= 90):
+                        self._updateFuzzyMatches("partial", drug, k, pRatio)    
                         return (k, True)
         return (drug, False)
     
@@ -122,6 +134,12 @@ class Patient(object):
             Patient.PatientDrugs["category"].append(Patient.DrugMap[drug])
             Patient.PatientDrugs["organ"].append(Patient.OrganMap[Patient.DrugMap[drug]])
          
+    def _updateFuzzyMatches(self, type, old, new, score):
+        Patient.FuzzyMatches["matchType"].append(type)
+        Patient.FuzzyMatches["oldValue"].append(old)
+        Patient.FuzzyMatches["newValue"].append(new)
+        Patient.FuzzyMatches["score"].append(score)
+        
     def _getMedicationsMapped(self):
         r'''
         returns a set of drug texts
