@@ -1,42 +1,75 @@
-import spacy
-import re
-from bs4 import BeautifulSoup
+import os
+import xml.etree.ElementTree as ET
 
 
-def extract_social_history(xml_text):
-    # Load English tokenizer, tagger, parser, NER, and word vectors
-    nlp = spacy.load("en_core_web_sm")
+def extract_social_history(xml_file):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+    text_element = root.find("TEXT")
 
-    # Remove XML tags
-    clean_text = BeautifulSoup(xml_text, "xml").get_text()
+    social_history_names = ["sohx", "social history", "shx", "sh:"]
+    if any(name in text_element.text.lower() for name in social_history_names):
+        return True
+    else:
+        return False
 
-    # Process the text with spaCy
-    doc = nlp(clean_text)
 
-    # Find social history section
-    social_history_text = ""
-    found_social_history = False
-    for sent in doc.sents:
-        # Check if the sentence contains "social history" or similar keywords
-        if re.search(r'\b(?:social history|social Hx|social hx)\b', sent.text, re.IGNORECASE):
-            found_social_history = True
-        elif found_social_history:
-            # Check if the sentence contains indicators of the end of the social history section
-            if re.search(r'\b(?:family history|past medical history|present illness|physical exam|review of systems)\b', sent.text, re.IGNORECASE):
-                break
+def get_socialhistories(directory):
+    social_histories = []
+    no_social_histories = []
+    total_files = 0
+    count_files_with_social_history = 0
+    patients = set()
+
+    for filename in os.listdir(directory):
+        if filename.endswith(".xml"):
+            total_files += 1
+            if filename[:3] not in patients:
+                patients.add(filename[:3])
+
+            xml_file = os.path.join(directory, filename)
+            social_history = extract_social_history(xml_file)
+            if social_history:
+                count_files_with_social_history += 1
+                social_histories.append(filename)
             else:
-                social_history_text += sent.text + "\n"
+                no_social_histories.append(filename)
 
-    return social_history_text.strip()
+    return social_histories, no_social_histories, total_files, count_files_with_social_history, len(patients)
 
 
-# Load XML files and extract social history
-xml_files = ["../data/255-01.xml"]
+def get_patients_with_social_history():
+    # each patient is associated by their first three digits in each xml file, what we can do is parse out the first 3 digits of each file name that appears in social_histories and store it in a set
+    patients = set()
+    for sh in social_histories:
+        patients.add(sh[:3])
 
-for file_name in xml_files:
-    with open(file_name, "r") as file:
-        xml_text = file.read()
-        social_history = extract_social_history(xml_text)
-        print(f"Extracted Social History from {file_name}:")
-        print(social_history)
-        print("="*50)
+    patients_no_sh = set()
+    for nsh in no_social_histories:
+        if nsh[:3] not in patients:
+            patients_no_sh.add(nsh[:3])
+
+    return len(patients), len(patients_no_sh)
+
+
+'''
+Runner code
+'''
+directory = '../data/'
+social_histories, no_social_histories, total_files, count_files_with_social_history, total_patients = get_socialhistories(
+    directory)
+
+# Print results
+print('Total files:', total_files)
+print('Count files with social history:', count_files_with_social_history)
+social_histories.sort()
+print('Files with social history:', social_histories)
+num_patients_with_sh, num_patients_no_sh = get_patients_with_social_history()
+print('Number of patients with social history:', num_patients_with_sh)
+print('Number of patients without social history:', num_patients_no_sh)
+print('Total number of patients:', total_patients)
+
+
+# sort no_social_histories and print them
+# no_social_histories.sort()
+# print('Files without social history:', no_social_histories)
