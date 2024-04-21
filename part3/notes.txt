@@ -2,3 +2,23 @@ limitations:
 - only considering these 4 key words for finding social histories: sohx, shx, sh:, social histories
 - social histories that are only "As per the resident's note", "As seen in chart", "Non contributory" have been omitted from topic classification
 	- count: 9
+
+
+some things ive done:
+- accounted for psh with no sh
+- accounted for social histories that have no content (9 cnt)
+Total files: 1304
+Count files with social history: 658
+Number of patients with social history: 270
+Number of patients without social history: 26
+Total number of patients: 296
+
+LDA topics:
+Topic 0:
+years etoh tobacco denies alcohol
+
+Topic 1:
+lives use years married patient
+
+Topic 2:
+patient lives children retired smoke
