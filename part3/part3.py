@@ -51,7 +51,6 @@ def get_patients_with_social_history():
 
     return len(patients), len(patients_no_sh)
 
-
 '''
 Runner code
 '''

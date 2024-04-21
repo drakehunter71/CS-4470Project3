@@ -1,0 +1,4 @@
+limitations:
+- only considering these 4 key words for finding social histories: sohx, shx, sh:, social histories
+- social histories that are only "As per the resident's note", "As seen in chart", "Non contributory" have been omitted from topic classification
+	- count: 9
