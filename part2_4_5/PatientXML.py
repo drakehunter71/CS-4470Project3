@@ -1,11 +1,13 @@
+
 '''
 nice tutorial found here: https://www.datacamp.com/tutorial/python-xml-elementtree
 '''
-
+#%%
 import xml.etree.ElementTree as ET
 import pandas as pd
 import os
 from fuzzywuzzy import fuzz
+import re
 
 class Patient(object):
     Patients = list()
@@ -13,16 +15,14 @@ class Patient(object):
     DrugMap = dict()
     GenericMap = dict()
     OrganMap = dict()
+    FuzzyMatches = set()
 
     PatientDrugs = {"patient":list(),
                     "drug":list(),
                     "category":list(),
                     "organ":list()}
     
-    FuzzyMatches = {"matchType":list(),
-                    "oldValue":list(),
-                    "newValue":list(),
-                    "score":list()}
+    
 
     @classmethod
     def AggregatePatientXmls(cls, xmlFiles) -> list:
@@ -53,6 +53,17 @@ class Patient(object):
     
     @classmethod
     def GetFuzzyDataframe(cls) -> pd.DataFrame:
+        fuzzyDataframe = {"matchType":list(),
+                              "oldValue":list(),
+                              "newValue":list(),
+                              "score":list()}
+        
+        for item in cls.FuzzyMatches:
+            fuzzyDataframe["matchType"].append(item[0])
+            fuzzyDataframe["oldValue"].append(item[1])
+            fuzzyDataframe["newValue"].append(item[2])
+            fuzzyDataframe["score"].append(item[3])
+
         return pd.DataFrame.from_dict(cls.FuzzyMatches)
 
     def __init__(self, **kwargs):
@@ -90,16 +101,18 @@ class Patient(object):
         '''
         if drug in map.keys():
             return (drug, True)
+        elif drug in ["statins", "statin", "ace", "ssi"]:
+            return (drug, False)
         else:
             for k in map.keys():
                 ratio = fuzz.ratio(k, drug)
-                if (len(drug) >= 5 and ratio >= 80) or (len(drug) == 3 and ratio == 100) or (len(drug) == 4 and ratio >= 90):
+                if (len(drug) >= 4 and ratio >= 90) or (len(drug) == 3 and ratio == 100):
                     self._updateFuzzyMatches("full", drug, k, ratio)
                     return (k, True)
             for k in map.keys():
                 if "/" not in k:
                     pRatio = fuzz.partial_ratio(k, drug)
-                    if (len(drug) >= 5 and pRatio >= 80) or (len(drug) == 3 and pRatio == 100) or (len(drug) == 4 and pRatio >= 90):
+                    if (len(drug) >= 4 and pRatio >= 90) or (len(drug) == 3 and pRatio == 100):
                         self._updateFuzzyMatches("partial", drug, k, pRatio)    
                         return (k, True)
         return (drug, False)
@@ -135,11 +148,8 @@ class Patient(object):
             Patient.PatientDrugs["organ"].append(Patient.OrganMap[Patient.DrugMap[drug]])
          
     def _updateFuzzyMatches(self, type, old, new, score):
-        Patient.FuzzyMatches["matchType"].append(type)
-        Patient.FuzzyMatches["oldValue"].append(old)
-        Patient.FuzzyMatches["newValue"].append(new)
-        Patient.FuzzyMatches["score"].append(score)
-        
+        Patient.FuzzyMatches.add((type, old, new, score))
+
     def _getMedicationsMapped(self):
         r'''
         returns a set of drug texts
@@ -160,6 +170,7 @@ class Patient(object):
                 for med in meds:
                     subMeds = [sub.attrib for sub in med]
                     subMeds = [sub[key].lower().strip() for sub in subMeds]
+                    subMeds = [re.sub(r'\d|\.|,', '', sub) for sub in subMeds]
                     for drug in subMeds:
                         searchResult = self._findDrugMatch(drug, drugMap)
                         if searchResult[1]:
@@ -177,3 +188,79 @@ class Patient(object):
             text = [string.text for string in root.findall("./TEXT")]
             texts.append(text[0].lower().strip())
         return texts
+# %% drug categories
+import json
+
+Patient.DrugMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\drugNames.json" ) )
+Patient.GenericMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\genericToBrandName.json" ) )
+Patient.OrganMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\organMap.json" ) )
+
+r'''
+json.dump(genericMap, open(r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\genericToBrandName.json", "w"), 
+         indent=4, separators=(",", ": "), sort_keys=True ) '''
+
+
+#%%
+import os
+os.chdir(r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\Project3Data\Project3_data")
+
+test = Patient.AggregatePatientXmls(os.listdir())
+for item in test:
+    kwargs = {"records":item}
+    patient = Patient(**kwargs)
+
+#%%
+Patient.GetFuzzyDataframe().to_csv(
+    r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\fuzzy.csv",
+    index=False)
+
+Patient.GetDrugDataframe().to_csv(
+    r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\drugs.csv",
+    index=False)
+# %%
+
+results = sorted(Patient.Patients, key=lambda x: len(x.drugsUsed), reverse=True)[:15]        
+results2 = sorted(Patient.Patients, key=lambda x: len(x.drugsUsed))[:15]  
+
+# %%
+df = Patient.GetDrugDataframe()
+
+import matplotlib.pyplot as plt 
+import seaborn as sns
+
+df2 = df.groupby("drug").size().sort_values(ascending=False).index.to_list()[:20]
+df2 = df[df["drug"].isin(df2)]
+
+ax = sns.countplot(data=df2, 
+              hue="organ", 
+              y="drug",
+              stat="count", 
+              order=df2["drug"].value_counts().index, 
+              edgecolor="black")
+
+vals = ax.get_xticks()
+ax.set_xticklabels([f'{int(round(x/len(Patient.PatientDirectory.keys()),2)*100)}%' for x in vals])
+
+plt.title("Top 20 patient medications")
+plt.ylabel("Drug name")
+plt.xlabel(f"Percentage of all patients (n = {len(Patient.PatientDirectory.keys())} unique patients)")
+plt.legend(title="Organ system")
+plt.show()
+# %%
+sns.set_style("whitegrid")
+ax = sns.countplot(data=df, 
+              hue="organ", 
+              y="category",
+              stat="percent", 
+              order=df["category"].value_counts().index, 
+              edgecolor="black")
+
+vals = ax.get_xticks()
+ax.set_xticklabels([f'{int(x)}%' for x in vals])
+
+plt.title("Patient medications by drug category")
+plt.ylabel("Drug category")
+plt.xlabel(f"Percentage of all drugs (n = {len(df)})")
+plt.legend(title="Organ system")
+plt.show() 
+
