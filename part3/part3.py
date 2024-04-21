@@ -7,9 +7,22 @@ def extract_social_history(xml_file):
     root = tree.getroot()
     text_element = root.find("TEXT")
 
-    social_history_names = ["sohx", "social history", "shx", "sh:"]
-    if any(name in text_element.text.lower() for name in social_history_names):
+    # social_history_names = ["sohx", "social history", "shx", "sh:"]
+    
+    if "social history" in text_element.text.lower():
         return True
+    elif "sohx" in text_element.text.lower():
+        return True
+    elif "shx" in text_element.text.lower():
+        return True
+    elif "sh:" in text_element.text.lower():
+        # for every word in text_element.text.lower() check if it's exactly "sh:"
+        # if it is, return True
+        # else return False
+        # check if we matched "sh:"
+        # i have to do this because sometimes files only contain "psh:" and no "sh:" but still get counted as having a social history
+        if text_element.text.lower().count("sh:") == 1:
+            return True
     else:
         return False
 
@@ -61,8 +74,8 @@ social_histories, no_social_histories, total_files, count_files_with_social_hist
 # Print results
 print('Total files:', total_files)
 print('Count files with social history:', count_files_with_social_history)
-social_histories.sort()
-print('Files with social history:', social_histories)
+# social_histories.sort()
+# print('Files with social history:', social_histories)
 num_patients_with_sh, num_patients_no_sh = get_patients_with_social_history()
 print('Number of patients with social history:', num_patients_with_sh)
 print('Number of patients without social history:', num_patients_no_sh)
