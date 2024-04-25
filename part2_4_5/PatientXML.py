@@ -101,20 +101,30 @@ class Patient(object):
         '''
         if drug in map.keys():
             return (drug, True)
-        elif drug in ["statins", "statin", "ace", "ssi"]:
+        elif drug in ["statins", "statin", "ace", "ssi", "acei"]:
             return (drug, False)
         else:
+            #store all candidate matches and return best match if there is at least one match
+            matches = list()
             for k in map.keys():
                 ratio = fuzz.ratio(k, drug)
                 if (len(drug) >= 4 and ratio >= 90) or (len(drug) == 3 and ratio == 100):
-                    self._updateFuzzyMatches("full", drug, k, ratio)
-                    return (k, True)
+                    matches.append(("full", drug, k, ratio))
+            if len(matches) > 0:
+                drugMatch = sorted(matches, key=lambda x: x[3], reverse=True)[0]
+                self._updateFuzzyMatches(*drugMatch)
+                return (drugMatch[2], True)
+            
+            partialMatches = list()
             for k in map.keys():
                 if "/" not in k:
                     pRatio = fuzz.partial_ratio(k, drug)
                     if (len(drug) >= 4 and pRatio >= 90) or (len(drug) == 3 and pRatio == 100):
-                        self._updateFuzzyMatches("partial", drug, k, pRatio)    
-                        return (k, True)
+                        partialMatches.append(("partial", drug, k, pRatio))
+            if len(partialMatches) > 0:
+                drugMatch = sorted(partialMatches, key=lambda x: x[3], reverse=True)[0]
+                self._updateFuzzyMatches(*drugMatch) 
+                return (drugMatch[2], True)
         return (drug, False)
     
     def _getBrandToGeneric(self, drug):
@@ -170,7 +180,7 @@ class Patient(object):
                 for med in meds:
                     subMeds = [sub.attrib for sub in med]
                     subMeds = [sub[key].lower().strip() for sub in subMeds]
-                    subMeds = [re.sub(r'\d|\.|,', '', sub) for sub in subMeds]
+                    subMeds = [re.sub(r'\d|\.|,|(|)', '', sub) for sub in subMeds]
                     for drug in subMeds:
                         searchResult = self._findDrugMatch(drug, drugMap)
                         if searchResult[1]:
@@ -224,7 +234,9 @@ results2 = sorted(Patient.Patients, key=lambda x: len(x.drugsUsed))[:15]
 
 # %%
 df = Patient.GetDrugDataframe()
+totalUniqueDrugs = len(df["drug"].value_counts())
 
+#%%
 import matplotlib.pyplot as plt 
 import seaborn as sns
 
@@ -241,9 +253,9 @@ ax = sns.countplot(data=df2,
 vals = ax.get_xticks()
 ax.set_xticklabels([f'{int(round(x/len(Patient.PatientDirectory.keys()),2)*100)}%' for x in vals])
 
-plt.title("Top 20 patient medications")
+plt.title(f"Top 20 patient drugs (n = {totalUniqueDrugs} unique drugs)")
 plt.ylabel("Drug name")
-plt.xlabel(f"Percentage of all patients (n = {len(Patient.PatientDirectory.keys())} unique patients)")
+plt.xlabel(f"Percentage of patients taking drug (n = {len(Patient.PatientDirectory.keys())} unique patients)")
 plt.legend(title="Organ system")
 plt.show()
 # %%
@@ -264,3 +276,5 @@ plt.xlabel(f"Percentage of all drugs (n = {len(df)})")
 plt.legend(title="Organ system")
 plt.show() 
 
+
+# %%
