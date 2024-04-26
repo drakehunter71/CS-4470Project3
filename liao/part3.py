@@ -1,5 +1,6 @@
 import os
 import xml.etree.ElementTree as ET
+import random
 
 
 def extract_social_history(xml_file):
@@ -68,14 +69,16 @@ def get_patients_with_social_history():
 Runner code
 '''
 directory = '../data/'
+# directory of random files for part 6
+# directory = './random_xml_files'
 social_histories, no_social_histories, total_files, count_files_with_social_history, total_patients = get_socialhistories(
     directory)
 
 # Print results
 print('Total files:', total_files)
 print('Count files with social history:', count_files_with_social_history)
-# social_histories.sort()
-# print('Files with social history:', social_histories)
+social_histories.sort()
+print('Files with social history:', social_histories)
 num_patients_with_sh, num_patients_no_sh = get_patients_with_social_history()
 print('Number of patients with social history:', num_patients_with_sh)
 print('Number of patients without social history:', num_patients_no_sh)

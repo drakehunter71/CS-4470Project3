@@ -7,6 +7,9 @@ limitations:
 some things ive done:
 - accounted for psh with no sh
 - accounted for social histories that have no content (9 cnt)
+- tokenize sh's found
+
+results:
 Total files: 1304
 Count files with social history: 658
 Number of patients with social history: 270
@@ -14,6 +17,14 @@ Number of patients without social history: 26
 Total number of patients: 296
 
 LDA topics:
+How were topics determed:
+- tokenized
+- removed punctuation
+- used NLTK to remove stop words
+- used LDA
+- evaluated the perplexity scores across a range of potential topic numbers, selecting the configuration that yielded the lowest perplexity
+
+- attained 3 topics 
 Topic 0:
 years etoh tobacco denies alcohol
 
@@ -22,3 +33,71 @@ lives use years married patient
 
 Topic 2:
 patient lives children retired smoke
+
+
+
+FOR PART 6
+- chose 150 random files (for limiting purposes)
+- cleaned the xml files so only the <TEXT> elements are left (to make it easier for the models but also to save tokens)
+- removed repetative new line characters (again to save tokens)
+
+Total files: 150
+Count files with social history: 73
+Number of patients with social history: 61
+Number of patients without social history: 61
+Total number of patients: 122
+
+GPT 3.5:
+no sh correct: 33
+no sh incorrect: 44
+sh correct: 58
+sh incorrect: 15
+
+Total sh found: 102
+
+Topics:
+1. Medical Conditions and Family History:
+	- Terms: colon cancer, family history, CAD, DM, high cholesterol
+2. Personal History and Habits:
+	- Terms: rural Finland, hidden during war, marriage, rural lifestyle, tobacco use
+3. Social and Occupational Details:
+	- Terms: divorced, sexually active, invest cons, engineer, occupation
+4. Health Status and Lifestyle:
+	- Terms: disabled, ETOH and tobacco history, hospitalization, tobacco use, current smoker
+5. Living Arrangements and Support System:
+	- Terms: living at home, VNA services, son's support, living alone, family support
+6. Health Monitoring and Treatment Compliance:
+	- Terms: blood pressure medications, Emergency Department visit, medication compliance, treatment cessation, chest pain episodes
+7. Behavioral and Lifestyle Changes:
+	- Terms: exercise routine, grief, lifestyle changes, smoking cessation, alcohol consumption
+8. Occupational and Family Details:
+	- Terms: works at Nvidia, lives with son, lives with wife and children, engineering profession, family history of heart disease
+9. Current Health Status and Symptoms:
+	- Terms: dry cough, artificial tears, diabetes control, weight loss, dietary intake
+
+
+========================================================================================================================
+
+Llama:
+no sh correct: 53
+no sh incorrect: 24
+sh correct: 69
+sh incorrect: 4
+
+Total sh found: 93
+
+Topics:
+1. Family and Relationships
+	- Terms: married, husband, wife, children, family
+2. Substance Use
+	- Terms: tobacco, EtOH, smoking, drugs, alcohol
+3. Occupation and Education
+	- Terms: job, work, school, engineer, investment
+4. Health and Wellness
+	- Terms: exercise, obesity, physical activity, health, wellness
+5. Living Situation
+	- Terms: lives, home, alone, with, family
+6. Personal History
+	- Terms: war, Finland, Algeria, rural, farm
+7. Lifestyle Choices
+	- Terms: quit, denied, occasional, interested, nonsmoker
