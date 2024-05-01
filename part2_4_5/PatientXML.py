@@ -70,12 +70,14 @@ class Patient(object):
         self.records = self._buildElementTrees(kwargs["records"])
         self.id = self._getPatientId(kwargs["records"][0])
         self.drugsUsed = self._getMedicationsMapped()
+        self.textDrugs = self._getTextMapped()
+        self.allDrugs = self.drugsUsed | self.textDrugs
         self._updatePatientDrugs()
         Patient.Patients.append(self)
         Patient.PatientDirectory[self.id] = self
         
     def __repr__(self) -> str:
-        return f"Patient: {self.id}\tRecords: {len(self.records)}\tNo.Drugs: {len(self.drugsUsed)}"
+        return f"Patient: {self.id}\tRecords: {len(self.records)}\tNo.Drugs: {len(self.allDrugs)}"
 
     def _buildElementTrees(self, records) -> list:
         r'''
@@ -151,7 +153,8 @@ class Patient(object):
         return (newDrugs | drugs) - compounds
         
     def _updatePatientDrugs(self):  
-        for drug in self.drugsUsed:
+        drugs = self.drugsUsed | self.textDrugs
+        for drug in drugs:
             Patient.PatientDrugs["patient"].append(self.id)
             Patient.PatientDrugs["drug"].append(drug)
             Patient.PatientDrugs["category"].append(Patient.DrugMap[drug])
@@ -187,7 +190,27 @@ class Patient(object):
                             medications.append(searchResult[0])
         results = set([self._getBrandToGeneric(drug) for drug in medications]) 
         return self._splitCompoundDrugs(results)
-     
+    
+    def _getTextMapped(self):
+        r'''
+        returns a set of drug texts
+        text -> drug name
+        '''
+        query = "./TEXT"
+        drugMap = Patient.DrugMap
+        medications = list()
+
+        for record in self.records:
+            root = record.getroot()
+            text = root.findall(query)
+            for t in text:
+                for drug in drugMap:
+                    if drug in t.text.lower() and len(drug) > 4:
+                        medications.append(drug)
+
+        results = set([self._getBrandToGeneric(drug) for drug in medications])
+        return self._splitCompoundDrugs(results)
+           
     def GetTextFromTags(self) -> list:
         r'''
         returns a list of strings comprised of the texts in each patient record
@@ -201,9 +224,9 @@ class Patient(object):
 # %% drug categories
 import json
 
-Patient.DrugMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\drugNames.json" ) )
-Patient.GenericMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\genericToBrandName.json" ) )
-Patient.OrganMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\organMap.json" ) )
+Patient.DrugMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\CS-4470Project3\part2_4_5\drugNames.json" ) )
+Patient.GenericMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\CS-4470Project3\part2_4_5\genericToBrandName.json" ) )
+Patient.OrganMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\CS-4470Project3\part2_4_5\organMap.json" ) )
 
 r'''
 json.dump(genericMap, open(r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\genericToBrandName.json", "w"), 
@@ -229,8 +252,8 @@ Patient.GetDrugDataframe().to_csv(
     index=False)
 # %%
 
-results = sorted(Patient.Patients, key=lambda x: len(x.drugsUsed), reverse=True)[:15]        
-results2 = sorted(Patient.Patients, key=lambda x: len(x.drugsUsed))[:15]  
+results = sorted(Patient.Patients, key=lambda x: len(x.allDrugs), reverse=True)[:15]        
+results2 = sorted(Patient.Patients, key=lambda x: len(x.allDrugs))[:15]  
 
 # %%
 df = Patient.GetDrugDataframe()
@@ -259,12 +282,15 @@ plt.xlabel(f"Percentage of patients taking drug (n = {len(Patient.PatientDirecto
 plt.legend(title="Organ system")
 plt.show()
 # %%
+numCategories = df.groupby("category").size().sort_values(ascending=False).index.to_list()
+df3 = df[df["category"].isin(numCategories[:20])]
+
 sns.set_style("whitegrid")
-ax = sns.countplot(data=df, 
+ax = sns.countplot(data=df3, 
               hue="organ", 
               y="category",
               stat="percent", 
-              order=df["category"].value_counts().index, 
+              order=df3["category"].value_counts().index, 
               edgecolor="black")
 
 vals = ax.get_xticks()
