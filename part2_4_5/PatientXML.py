@@ -22,7 +22,7 @@ class Patient(object):
                     "category":list(),
                     "organ":list()}
     
-    
+    NewDrugs = set()
 
     @classmethod
     def AggregatePatientXmls(cls, xmlFiles) -> list:
@@ -72,6 +72,7 @@ class Patient(object):
         self.drugsUsed = self._getMedicationsMapped()
         self.textDrugs = self._getTextMapped()
         self.allDrugs = self.drugsUsed | self.textDrugs
+        self.missingDrugs = self._findNewTextMapped()
         self._updatePatientDrugs()
         Patient.Patients.append(self)
         Patient.PatientDirectory[self.id] = self
@@ -191,7 +192,7 @@ class Patient(object):
         results = set([self._getBrandToGeneric(drug) for drug in medications]) 
         return self._splitCompoundDrugs(results)
     
-    def _getTextMapped(self):
+    def _getTextMapped(self) -> set:
         r'''
         returns a set of drug texts
         text -> drug name
@@ -204,13 +205,32 @@ class Patient(object):
             root = record.getroot()
             text = root.findall(query)
             for t in text:
-                for drug in drugMap:
+                for drug in drugMap.keys():
                     if drug in t.text.lower() and len(drug) > 4:
                         medications.append(drug)
 
         results = set([self._getBrandToGeneric(drug) for drug in medications])
         return self._splitCompoundDrugs(results)
            
+    def _findNewTextMapped(self) -> set:
+        r'''
+        returns a set of drug texts
+        text -> drug name
+        '''
+        query = "./TEXT"
+        medications = list()
+
+        for record in self.records:
+            root = record.getroot()
+            text = root.findall(query)
+            for t in text:
+                for drug in Patient.NewDrugs:
+                    if drug in t.text.lower() and len(drug) > 4:
+                        medications.append(drug)
+
+        results = set([self._getBrandToGeneric(drug) for drug in medications])
+        return self._splitCompoundDrugs(results) - self.allDrugs
+
     def GetTextFromTags(self) -> list:
         r'''
         returns a list of strings comprised of the texts in each patient record
@@ -221,12 +241,32 @@ class Patient(object):
             text = [string.text for string in root.findall("./TEXT")]
             texts.append(text[0].lower().strip())
         return texts
+
+    def GetAllDrugs(self):
+        count = 1
+        drugs = sorted(list(self.allDrugs))
+        longestDrug = len(sorted(drugs, key = lambda x: len(x), reverse=True)[0])
+
+        for drug in sorted(list(self.allDrugs)):
+            if count < 4:
+                print(f"{drug}{" "*(longestDrug - len(drug))}\t", end="")
+                count +=1
+            else:
+                print(drug)
+                count = 1
 # %% drug categories
 import json
+import ast
 
 Patient.DrugMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\CS-4470Project3\part2_4_5\drugNames.json" ) )
 Patient.GenericMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\CS-4470Project3\part2_4_5\genericToBrandName.json" ) )
 Patient.OrganMap = json.load( open( r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\CS-4470Project3\part2_4_5\organMap.json" ) )
+
+file: str
+with open(r"C:\Users\scots\Downloads\drugSet.txt", "r") as f:
+    file = f.read().strip().lower()
+newDrugs = ast.literal_eval(file)
+Patient.NewDrugs = newDrugs
 
 r'''
 json.dump(genericMap, open(r"C:\Users\scots\OneDrive\Desktop\CS4470\project3\genericToBrandName.json", "w"), 
@@ -252,17 +292,17 @@ Patient.GetDrugDataframe().to_csv(
     index=False)
 # %%
 
-results = sorted(Patient.Patients, key=lambda x: len(x.allDrugs), reverse=True)[:15]        
-results2 = sorted(Patient.Patients, key=lambda x: len(x.allDrugs))[:15]  
+results = sorted(Patient.Patients, key=lambda x: len(x.allDrugs), reverse=True)[:18]        
+results2 = sorted(Patient.Patients, key=lambda x: len(x.allDrugs))[:18]  
 
 # %%
 df = Patient.GetDrugDataframe()
 totalUniqueDrugs = len(df["drug"].value_counts())
 
-#%%
+
 import matplotlib.pyplot as plt 
 import seaborn as sns
-
+sns.color_palette("Paired")
 df2 = df.groupby("drug").size().sort_values(ascending=False).index.to_list()[:20]
 df2 = df[df["drug"].isin(df2)]
 
@@ -271,7 +311,8 @@ ax = sns.countplot(data=df2,
               y="drug",
               stat="count", 
               order=df2["drug"].value_counts().index, 
-              edgecolor="black")
+              edgecolor="black",
+              hue_order = ["Endocrinology", "Cardiovascular", "Gastrointestinal", "Dermatologic"])
 
 vals = ax.get_xticks()
 ax.set_xticklabels([f'{int(round(x/len(Patient.PatientDirectory.keys()),2)*100)}%' for x in vals])
@@ -281,6 +322,7 @@ plt.ylabel("Drug name")
 plt.xlabel(f"Percentage of patients taking drug (n = {len(Patient.PatientDirectory.keys())} unique patients)")
 plt.legend(title="Organ system")
 plt.show()
+
 # %%
 numCategories = df.groupby("category").size().sort_values(ascending=False).index.to_list()
 df3 = df[df["category"].isin(numCategories[:20])]
@@ -296,7 +338,7 @@ ax = sns.countplot(data=df3,
 vals = ax.get_xticks()
 ax.set_xticklabels([f'{int(x)}%' for x in vals])
 
-plt.title("Patient medications by drug category")
+plt.title(f"Top 20 drug categories (n = {len(numCategories)} unique categories)")
 plt.ylabel("Drug category")
 plt.xlabel(f"Percentage of all drugs (n = {len(df)})")
 plt.legend(title="Organ system")
