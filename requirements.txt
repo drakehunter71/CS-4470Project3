@@ -1,1 +1,9 @@
 pandas
+spark-nlp
+spark-nlp-jsl
+johnsnowlabs
+nbformat
+sklearn
+nltk
+matplotlib
+seaborn
